@@ -52,8 +52,12 @@ NotifyHub follows a **hub-and-spoke, event-driven architecture**.
 All notifications (single or bulk) go through the **same ingestion and processing pipeline**, ensuring consistency and correctness.
 
 ---
+## 🏗️ Initial Architecture Diagram
+![NotifyHub Architecture](docs/notifyhub_architecture.png)
 
-## 🏗️ Architecture (AWS Serverless)
+
+## 🏗️ Final Architecture (AWS Serverless)
+![NotifyHub Serverless Architecture](docs/notifyhub_serverless_architecture.png)
 
 ### Core AWS Services Used
 

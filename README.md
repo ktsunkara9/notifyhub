@@ -1,9 +1,64 @@
 # NotifyHub
 
-NotifyHub is a **production-grade, event-driven notification platform** built using **AWS serverless services**.  
+NotifyHub is a **production-grade, event-driven notification platform** built using **Quarkus and AWS serverless services**.  
 It supports **real-time and bulk notifications** with **prioritization, rate limiting, user preferences**, and **multi-channel delivery** (Email, SMS, In-App, IVRS).
 
 This project is designed to demonstrate **scalable system design**, **clean service boundaries**, and **cloud-native architecture** suitable for real-world production systems.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: Quarkus (supersonic, subatomic Java)
+- **Language**: Java 17
+- **Build Tool**: Maven
+- **Infrastructure**: Terraform (Infrastructure as Code)
+- **Cloud**: AWS Serverless (Lambda, API Gateway, DynamoDB, SQS, SNS)
+- **Deployment**: Native compilation with GraalVM
+
+## Getting Started
+
+### Prerequisites
+- Java 17 or higher
+- Maven 3.6 or higher
+- GraalVM (optional, for native compilation)
+
+### Running the Application
+```bash
+# Development mode (hot reload)
+mvn quarkus:dev
+
+# Production mode
+mvn quarkus:build
+java -jar target/quarkus-app/quarkus-run.jar
+```
+
+The application will start on `http://localhost:8080`
+
+### Building for AWS Lambda
+```bash
+# JVM mode
+mvn clean package
+
+# Native mode (faster cold starts)
+mvn clean package -Pnative
+```
+
+### Infrastructure Deployment
+```bash
+# Initialize Terraform
+cd infrastructure
+terraform init
+
+# Plan deployment
+terraform plan
+
+# Deploy infrastructure
+terraform apply
+
+# Destroy infrastructure
+terraform destroy
+```
 
 ---
 

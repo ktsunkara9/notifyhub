@@ -42,3 +42,6 @@ Thumbs.db
 # Application properties with sensitive data
 application-local.properties
 application-prod.properties
+
+# Amazon Q rules (project-specific standards)
+.amazonq/

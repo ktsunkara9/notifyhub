@@ -20,16 +20,40 @@ This project is designed to demonstrate **scalable system design**, **clean serv
 
 ### Prerequisites
 - Java 17 or higher
-- Maven 3.6 or higher
+- Maven 3.8.2 or higher (or use Maven Wrapper)
 - GraalVM (optional, for native compilation)
+- Docker Desktop (for native builds on Windows)
+
+### Maven Wrapper Setup
+
+This project uses Maven Wrapper to ensure consistent Maven version (3.9.6) across all environments.
+
+**Generate Maven Wrapper files:**
+```bash
+mvn -N wrapper:wrapper -Dmaven=3.9.6
+```
+
+This creates:
+- `mvnw.cmd` (Windows)
+- `mvnw` (Unix/Linux)
+- `.mvn/wrapper/` directory
+
+**After setup, use `mvnw` instead of `mvn`:**
+```bash
+# Windows
+mvnw.cmd quarkus:dev
+
+# Unix/Linux/Mac
+./mvnw quarkus:dev
+```
 
 ### Running the Application
 ```bash
 # Development mode (hot reload)
-mvn quarkus:dev
+mvnw.cmd quarkus:dev
 
 # Production mode
-mvn quarkus:build
+mvnw.cmd quarkus:build
 java -jar target/quarkus-app/quarkus-run.jar
 ```
 
@@ -38,10 +62,10 @@ The application will start on `http://localhost:8080`
 ### Building for AWS Lambda
 ```bash
 # JVM mode
-mvn clean package
+mvnw.cmd clean package
 
-# Native mode (faster cold starts)
-mvn clean package -Pnative
+# Native mode (faster cold starts, uses Docker)
+mvnw.cmd clean package -Pnative
 ```
 
 ### Infrastructure Deployment

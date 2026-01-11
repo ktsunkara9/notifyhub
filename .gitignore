@@ -45,3 +45,8 @@ application-prod.properties
 
 # Amazon Q rules (project-specific standards)
 .amazonq/
+
+
+# Approach documentation (lessons learned, not for public repo)
+APPROACH.md
+

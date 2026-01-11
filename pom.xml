@@ -38,6 +38,13 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-resteasy-reactive-jackson</artifactId>
         </dependency>
+        
+        <!-- AWS SDK v2 for SQS -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
+            <version>2.20.26</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -57,4 +64,14 @@
             </plugin>
         </plugins>
     </build>
+    
+    <profiles>
+        <!-- Native build profile -->
+        <profile>
+            <id>native</id>
+            <properties>
+                <quarkus.package.type>native</quarkus.package.type>
+            </properties>
+        </profile>
+    </profiles>
 </project>

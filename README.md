@@ -57,6 +57,25 @@ mvnw.cmd quarkus:dev
 ```
 
 ### Running the Application
+
+**Option 1: IntelliJ IDEA (Recommended)**
+
+**Important**: IntelliJ's bundled Maven may be too old. Configure to use Maven Wrapper:
+
+1. Go to **File** → **Settings** → **Build, Execution, Deployment** → **Build Tools** → **Maven**
+2. Set **Maven home path** to: `$PROJECT_DIR$` (this uses the wrapper)
+3. Click **Apply** → **OK**
+
+Then create run configuration:
+1. Open **Run** → **Edit Configurations**
+2. Click **+** → **Maven**
+3. Set:
+   - **Name**: `Quarkus Dev`
+   - **Command line**: `quarkus:dev`
+   - **Working directory**: `$ProjectFileDir$`
+4. Click **Apply** → **OK** → **Run**
+
+**Option 2: Command Line**
 ```bash
 # Development mode (hot reload)
 mvnw.cmd quarkus:dev

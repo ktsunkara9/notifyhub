@@ -2,10 +2,9 @@ package inc.skt.notifyhub.service;
 
 import inc.skt.notifyhub.dto.NotificationRequest;
 import inc.skt.notifyhub.dto.NotificationResponse;
-import inc.skt.notifyhub.infrastructure.queue.SqsQueueService;
+import inc.skt.notifyhub.infrastructure.queue.InMemoryQueueService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.UUID;
 
@@ -13,16 +12,13 @@ import java.util.UUID;
 public class NotificationService {
 
     @Inject
-    SqsQueueService sqsQueueService;
-
-    @ConfigProperty(name = "notifyhub.sqs.queue-url")
-    String queueUrl;
+    InMemoryQueueService queueService;
 
     public NotificationResponse sendNotification(NotificationRequest request) {
         String notificationId = UUID.randomUUID().toString();
         
-        // Send to SQS
-        sqsQueueService.sendMessage(queueUrl, request);
+        // Send to queue (in-memory for local dev)
+        queueService.sendMessage("local-queue", request);
         
         NotificationResponse response = new NotificationResponse();
         response.notificationId = notificationId;

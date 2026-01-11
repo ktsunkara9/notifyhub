@@ -28,7 +28,16 @@ This project is designed to demonstrate **scalable system design**, **clean serv
 
 This project uses Maven Wrapper to ensure consistent Maven version (3.9.6) across all environments.
 
-**Generate Maven Wrapper files:**
+**If Maven wrapper JAR is missing, download it:**
+```bash
+# Windows
+curl -o .mvn\wrapper\maven-wrapper.jar https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar
+
+# Unix/Linux/Mac
+curl -o .mvn/wrapper/maven-wrapper.jar https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar
+```
+
+**Or generate Maven Wrapper files from scratch:**
 ```bash
 mvn -N wrapper:wrapper -Dmaven=3.9.6
 ```

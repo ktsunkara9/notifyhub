@@ -1,11 +1,13 @@
 package inc.skt.notifyhub.resource;
 
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
 @Path("/health")
+@IfBuildProfile("dev")
 public class HealthResource {
     
     @GET

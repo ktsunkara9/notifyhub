@@ -58,58 +58,108 @@ mvnw.cmd quarkus:dev
 
 ### Running the Application
 
-**Option 1: IntelliJ IDEA (Recommended)**
+#### Local Development
 
-**Important**: IntelliJ's bundled Maven may be too old. Configure to use Maven Wrapper:
+Run in development mode with hot reload:
 
-1. Go to **File** → **Settings** → **Build, Execution, Deployment** → **Build Tools** → **Maven**
-2. Set **Maven home path** to: `$PROJECT_DIR$` (this uses the wrapper)
-3. Click **Apply** → **OK**
-
-Then create run configuration:
-1. Open **Run** → **Edit Configurations**
-2. Click **+** → **Maven**
-3. Set:
-   - **Name**: `Quarkus Dev`
-   - **Command line**: `quarkus:dev`
-   - **Working directory**: `$ProjectFileDir$`
-4. Click **Apply** → **OK** → **Run**
-
-**Option 2: Command Line**
 ```bash
-# Development mode (hot reload)
-mvnw.cmd quarkus:dev
-
-# Production mode
-mvnw.cmd quarkus:build
-java -jar target/quarkus-app/quarkus-run.jar
+mvnw quarkus:dev
 ```
 
-The application will start on `http://localhost:8080`
+Test the endpoints:
 
-### Building for AWS Lambda
 ```bash
-# JVM mode
-mvnw.cmd clean package
+# Send notification
+curl -X POST http://localhost:8080/api/v1/notifications \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"123","message":"Hello"}'
 
-# Native mode (faster cold starts, uses Docker)
-mvnw.cmd clean package -Pnative
+# Health check
+curl http://localhost:8080/q/health
 ```
 
-### Infrastructure Deployment
+**Dev Profile:**
+- Uses `NotificationResource` (REST endpoints)
+- Excludes `ApiHandler` (Lambda handler)
+- Runs on `http://localhost:8080`
+
+---
+
+#### AWS Lambda Deployment
+
+**Step 1: Build for Lambda**
+
 ```bash
-# Initialize Terraform
-cd infrastructure
+# Build with prod profile
+mvnw clean package -Dquarkus.profile=prod
+```
+
+This creates `target/function.zip` with:
+- `ApiHandler` included (Lambda routing)
+- `NotificationResource` excluded (not needed in Lambda)
+
+**Step 2: Deploy Infrastructure**
+
+```bash
+cd terraform
+
+# Initialize Terraform (first time only)
 terraform init
 
-# Plan deployment
+# Review changes
 terraform plan
 
-# Deploy infrastructure
+# Deploy to AWS
 terraform apply
+```
 
-# Destroy infrastructure
+**Step 3: Test on AWS**
+
+```bash
+# Get API endpoint from Terraform output
+terraform output api_endpoint
+
+# Test notification endpoint
+curl -X POST https://[api-id].execute-api.us-east-1.amazonaws.com/dev/api/v1/notifications \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"123","message":"Hello from AWS"}'
+
+# Test health endpoint
+curl https://[api-id].execute-api.us-east-1.amazonaws.com/dev/health
+```
+
+**Step 4: Destroy Infrastructure**
+
+```bash
+cd terraform
 terraform destroy
+```
+
+---
+
+#### Build Profiles
+
+| Profile | Command | Active Class | Use Case |
+|---------|---------|--------------|----------|
+| **dev** | `mvnw quarkus:dev` | NotificationResource | Local development |
+| **prod** | `mvnw package -Dquarkus.profile=prod` | ApiHandler | AWS Lambda deployment |
+
+---
+
+#### Quick Reference
+
+```bash
+# Local development
+mvnw quarkus:dev
+
+# Build for AWS
+mvnw clean package -Dquarkus.profile=prod
+
+# Deploy to AWS
+cd terraform && terraform apply
+
+# Destroy AWS resources
+cd terraform && terraform destroy
 ```
 
 ---

@@ -1,0 +1,1005 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS SAM template with a simple API definition
+
+Parameters:
+  AccountEnv:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /delta/account/environment
+  appId:
+    Description: The Id of the Application/API
+    Type: String
+  WeatherKMSKey:
+    Description: SSM Parameter for KMS CMK created for Binary Getter
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: '/delta/kms/weather-kms-cmk'
+  domainName:
+    Description: Domain for API custom domain and R53 mapping
+    Type: String
+
+  userfriendlydomainName:
+    Description: Domain for API custom domain and R53 mapping for user friendly url
+    Type: String
+
+  airportApiURL:
+    Description: API url for airport api
+    Type: String
+
+  authURL:
+    Description: AUth URL
+    Type: String
+
+  metarApiURL:
+    Description: API url for airport api
+    Type: String
+  tafApiURL:
+    Description: API url for airport api
+    Type: String
+  pirepApiURL:
+    Description: API url for airport api
+    Type: String
+  ficonApiURL:
+    Description: API url for airport api
+    Type: String
+  atisApiURL:
+    Description: API url for airport api
+    Type: String
+    
+  GetlambdaFunctionName:
+    Type: String
+    Description: The name of the Lambda function
+    Default: flight-briefing-api-lambda
+
+  SQSlambdaFunctionName:
+    Type: String
+    Description: The name of the SQS Lambda function
+    Default: flight-briefing-sqs-lambda
+
+  Environment:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: DO NOT CHANGE. This will be pulled from a pre-identified SSM
+      Parameter for the environment the resource is being created within
+    Default: /delta/account/environment:1
+  lambdaExecutionRoleArn:
+    Type: AWS::SSM::Parameter::Value<String>
+
+  GetlambdaFunctionArnParamName:
+    Type: String
+    Description: SSM parameter which keeps lambda function arn
+  GetlambdaFunctionLogGroupParamName:
+    Type: String
+    Description: SSM parameter which keeps lambda function log group name
+
+  SQSQueueName:
+    Type: String
+    Description: Name of the SQS queue
+    Default: sqs_tp_ack
+
+  setDeploymentPreferencetype:
+    Type: String
+    Description: Set DeploymentPreference type
+    Default: AllAtOnce
+    AllowedValues:
+      - Canary10Percent30Minutes
+      - Canary10Percent5Minutes
+      - Canary10Percent10Minutes
+      - Canary10Percent15Minutes
+      - Linear10PercentEvery10Minutes
+      - Linear10PercentEvery1Minute
+      - Linear10PercentEvery2Minutes
+      - Linear10PercentEvery3Minutes
+      - AllAtOnce
+  apiSecurityGroupId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Security group id to communicate from On Prem to VPC
+  alertNotificationTopicArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Alert notification SNS Topic ARN.
+    Default: /GlobalInfra/alerts/notification/topic/arn
+  apiGatewayExecutionRoleArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: ApiGateway Execution Role ARN
+  apiGatewayLogGroupName:
+    Type: String
+    Description: ApiGateway Log Group Name
+  blockCode:
+    Type: String
+    Description: Block code of the application.
+  ACMPublicCertificateArn:
+    Description: Certificate Id of Public ACM
+    Type: AWS::SSM::Parameter::Value<String>
+    #Default: '/metarWeatherDataApi/apiCustomCert/arn'
+  # AuthorizerFunctionArnParamName:
+  #   Type: AWS::SSM::Parameter::Value<String>
+  #   Description: Authorizer Lambda Function ARN Parameter
+  ACMPrivateCertificateArn:
+    Description: Certificate Id of Public ACM
+    Type: AWS::SSM::Parameter::Value<String>
+  PublicHostedZoneName:
+    Description: Public hosted zone name
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /delta/r53/publichostedzonename
+  PublicHostedZoneId:
+    Description: private hosted zone
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /delta/r53/publichostedzoneid
+  PrivateHostedZoneName:
+    Description: Public hosted zone name
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /delta/r53/hostedzonename
+  PrivateHostedZoneId:
+    Description: private hosted zone
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /delta/r53/hostedzoneid
+  ApiNLBDNSName:
+    Description: Common NLB DNS Name
+    Type: AWS::SSM::Parameter::Value<String>
+  ApiNLBCanonicalHostedZoneID:
+    Description: Common NLB Hosted Zone ID
+    Type: AWS::SSM::Parameter::Value<String>
+
+  ApiGatewayVPCEndpoint:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: ApiGateway VPCEndoint Id
+
+  HealthPath:
+    Type: String
+    Description: HealthCheckPath for 200 status or Pass
+
+  APIStageID:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: The name of the stage to deploy the API to.
+    Default: /delta/account/environment:1
+
+  CentAuthExecutionIamRole:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Role with cent auth lambda execution policies
+  CentAuthArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Populate this value with the arn of the custom resource lambda
+      within your environment (dev, si, prod)
+    Default: /delta/centauth/arn
+  ArnPropagateLambdaFunctionARN:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Common Lambda Function created to fetch APIGW Id from cross region
+      and add value in parameter store
+    Default: /GlobalInfra/arnpropagate/lambda
+  LambdaCusResActCrossRegionAlarmARN:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Custom Lambda for Cross Region alarm
+  FailoverBucket:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Failover bucket name
+    Default: /delta/apigateway/s3-healthcheck
+  FailoverBucketKey:
+    Type: String
+  protocol:
+    Description: Enter the protocol.
+    Type: String
+    Default: TCP
+    AllowedValues:
+      - TCP
+      - HTTP
+      - HTTPS
+  CrossRegionHealthIamRole:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Cross Region Health check Lambda role
+
+Globals:
+  Function:
+    Timeout: 20
+    MemorySize: 1536
+    # Environment:
+    #   Variables:
+    #     AWS_LAMBDA_EXEC_WRAPPER: /opt/dynatrace # Use the wrapper from the layer
+    #     DT_CLUSTER_ID: 816368297
+    #     DT_CONNECTION_BASE_URL: https://dlt1223.dynatrace-managed.com
+    #     DT_OPEN_TELEMETRY_ENABLE_INTEGRATION: true
+
+Mappings:
+
+  CrossRegionMap:
+    us-east-1:
+      Value: us-west-2
+    us-west-2:
+      Value: us-east-1
+
+  AirportAPIURLConfigMap:
+    development:
+      DeltaHostName: wxairportforecast-api-dev.delta.com
+      TokenUrl: https://ssaasi.delta.com/as/token.oauth2
+
+    systems-integration:
+      DeltaHostName: wxairportforecast-api-si.delta.com
+      TokenUrl: https://ssaasi.delta.com/as/token.oauth2
+
+    production:
+      DeltaHostName: wxairportforecast-api.delta.com
+      TokenUrl: https://ssaa.delta.com/as/token.oauth2
+
+  DTEnvMappings:
+    development:
+      DTTENANT: e2564b8e-9985-4178-9e71-74e21f49d6a6
+      DTCONNECTIONAUTHTOKEN: dt0a01.e2564b8e-9985-4178-9e71-74e21f49d6a6.02202f8d2313415a0fa2cbb8834ba6174bcbde5cfaaf1299e31da1c2aa444100
+    systems-integration:
+      DTTENANT: e2564b8e-9985-4178-9e71-74e21f49d6a6
+      DTCONNECTIONAUTHTOKEN: dt0a01.e2564b8e-9985-4178-9e71-74e21f49d6a6.02202f8d2313415a0fa2cbb8834ba6174bcbde5cfaaf1299e31da1c2aa444100
+    production:
+      DTTENANT: dbbe1fe6-c1b9-4ef5-9063-f51ccbac76c8
+      DTCONNECTIONAUTHTOKEN: dt0a01.dbbe1fe6-c1b9-4ef5-9063-f51ccbac76c8.54fc932527d30d98d358c888115491963fea66c4cd63dda7ae1adc3478d08d36
+
+Conditions:
+  IsUSWest2: !Equals
+    - !Ref AWS::Region
+    - us-west-2
+  IsRequired: !Equals
+    - !Sub '1'
+    - '1'
+
+Resources:
+  ##################### API Common Resources  Start ###########################################
+  flightBriefingApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !Ref apiGatewayExecutionRoleArn
+
+  #################### Public API Resources  Start ###########################################
+  flightBriefingApiApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    # DeletionPolicy: Delete
+    # UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/${flightBriefingApiapiGateway}
+      RetentionInDays: 30
+      Tags:
+        - Key: blockCode
+          Value: !Ref blockCode
+
+  flightBriefingApiAPIGatewayLogGroupParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: API Gateway - Log Group Parmeter
+      Name: !Sub /${appId}/api/gateway-log-group
+      Type: String
+      Value: !Ref flightBriefingApiApiGatewayLogGroup
+      Tags:
+        blockCode: !Ref blockCode
+
+  flightBriefingApiapiGateway:
+        Type: AWS::Serverless::Api
+        Properties:
+          StageName: !Ref APIStageID
+          Name: !Sub ${appId}-public-${Environment}
+          OpenApiVersion: 3.0.3
+          AlwaysDeploy: True
+          GatewayResponses:
+            DEFAULT_4xx:
+              ResponseParameters:
+                Headers:
+                  Access-Control-Allow-Headers: "'*'"
+                  Access-Control-Allow-Origin: "'*'"
+                  Access-Control-Allow-Methods: "'*'"
+          DefinitionBody: # Pull in an OpenApi definition from S3
+            'Fn::Transform':
+              Name: 'AWS::Include'
+              # Replace "bucket" with your bucket name
+              Parameters:
+                Location: ./swagger/swagger.yaml
+          EndpointConfiguration:
+            Type: REGIONAL
+            # VPCEndpointIds:
+            #   - !Ref ApiGatewayVPCEndpoint
+          AccessLogSetting:
+            DestinationArn: !GetAtt flightBriefingApiApiGatewayLogGroup.Arn
+            Format: '{ "requestId":"$context.requestId", "ip": "$context.identity.sourceIp", "requestTime":"$context.requestTime", "httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","routeKey":"$context.routeKey", "status":"$context.status","protocol":"$context.protocol", "responseLength":"$context.responseLength" }'
+          MethodSettings:
+            - LoggingLevel: INFO
+              MetricsEnabled: True
+              DataTraceEnabled: True
+              ResourcePath: '/*' # allows for logging on any resource
+              HttpMethod: '*' # allows for logging on any method
+          TracingEnabled: true  
+          Cors:
+            AllowMethods: "'PUT, GET, OPTIONS, POST'"
+            AllowOrigin: "'*'"
+            AllowHeaders: "'*'"
+            MaxAge: "'300'"
+          
+          Tags: 
+            blockCode: !Ref blockCode
+          # exception: !Ref exceptionTagValue
+  flightBriefingApiCurrentRegionPropagation:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /delta/current/${appId}-public-${Environment}/${AWS::Region}/apiID
+      Type: String
+      Value: !Ref flightBriefingApiapiGateway
+
+  flightBriefingApiIdImport:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: flightBriefingApiapiGateway
+    Properties:
+      ServiceToken: !Ref ArnPropagateLambdaFunctionARN
+      RestAPIArn: !Ref flightBriefingApiapiGateway
+      SSMParamname: !Sub /delta/replica/${appId}-public-${Environment}/${AWS::Region}/apiID
+      Region: !If
+        - IsUSWest2
+        - us-east-1
+        - us-west-2
+
+  flightBriefingApiPublicGetlambdaApiGatewayInvoke:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - flightBriefingApiapiGateway
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref flightBriefingApilambdaFunction.Alias
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${flightBriefingApiapiGateway}/*
+
+  flightBriefingApiapiGatewayDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Sub ${domainName}.${PublicHostedZoneName}
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      RegionalCertificateArn: !Ref ACMPublicCertificateArn
+      SecurityPolicy: TLS_1_2
+
+  flightBriefingApiapiGatewayMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      Stage: !Ref flightBriefingApiapiGateway.Stage
+      DomainName: !Ref flightBriefingApiapiGatewayDomainName
+      RestApiId: !Ref flightBriefingApiapiGateway
+
+  flightBriefingApiroute53RecordGroup:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref PublicHostedZoneId
+      RecordSets:
+        - Name: !Sub ${domainName}.${PublicHostedZoneName}
+          Type: CNAME
+          Region: !Sub ${AWS::Region}
+          SetIdentifier: !Sub RouteRecord-public-${appId}-${AWS::Region}
+          HealthCheckId: !Ref flightBriefingApiHealthCheck
+          ResourceRecords:
+            - !Sub ${domainName}.${AWS::Region}.${PublicHostedZoneName}
+          TTL: '60'
+
+  flightBriefingApiapiCustomDomainRegional:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Sub ${domainName}.${AWS::Region}.${PublicHostedZoneName}
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      RegionalCertificateArn: !Ref ACMPublicCertificateArn
+      SecurityPolicy: TLS_1_2
+
+  flightBriefingApiapiCustomDomainMappingRegional:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref flightBriefingApiapiCustomDomainRegional
+      RestApiId: !Ref flightBriefingApiapiGateway
+      Stage: !Ref flightBriefingApiapiGateway.Stage
+
+  flightBriefingApiroute53RecordGroupRegional: 
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref PublicHostedZoneId
+      RecordSets:
+        - Name: !Sub ${domainName}.${AWS::Region}.${PublicHostedZoneName}
+          AliasTarget:
+            DNSName: !GetAtt flightBriefingApiapiGatewayDomainName.RegionalDomainName
+            EvaluateTargetHealth: true
+            HostedZoneId: !GetAtt flightBriefingApiapiGatewayDomainName.RegionalHostedZoneId
+          Type: A
+          Weight: 50
+          SetIdentifier: !Sub RouteRecord-public-${appId}-${AWS::Region}
+
+
+  flightBriefingApiHealthCheck:
+    DependsOn: CrossRegionAlarm
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        AlarmIdentifier:
+          Name: !Join
+            - "-"
+            - - !Ref appId
+              - "Route53HealthAlarm"
+              - !FindInMap [CrossRegionMap, !Ref "AWS::Region", Value]
+              - !Ref Environment          
+          Region: !FindInMap [CrossRegionMap, !Ref "AWS::Region", Value]
+        InsufficientDataHealthStatus: LastKnownStatus
+        Type: CLOUDWATCH_METRIC
+      HealthCheckTags:
+        - Key: Name
+          Value: !Sub "${domainName}-R53HealthCheck-public-crossregion-${AWS::Region}"
+
+
+  flightBriefingApiRoute53HealthCheckParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: API Route53 Health Check ID
+      Name: !Sub "/flightBriefingApi/r53/healthcheck/${AWS::Region}/id"
+      Type: String
+      Value: !GetAtt flightBriefingApiHealthCheck.HealthCheckId
+
+  flightBriefingApiPrivateApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    # DeletionPolicy: Delete
+    # UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/${flightBriefingApiPrivateapiGateway}
+      RetentionInDays: 30
+      Tags:
+        - Key: blockCode
+          Value: !Ref blockCode
+
+  flightBriefingApiPrivateAPIGatewayLogGroupParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: API Gateway - Log Group Parmeter
+      Name: !Sub /${appId}/privateapi/gateway-log-group
+      Type: String
+      Value: !Ref flightBriefingApiPrivateApiGatewayLogGroup
+      Tags:
+        blockCode: !Ref blockCode
+
+  flightBriefingApiPrivateapiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref APIStageID
+      Name: !Sub ${appId}-private-${Environment}
+      OpenApiVersion: 3.0.3
+      AlwaysDeploy: true
+      DefinitionBody:
+        # Pull in an OpenApi definition from S3
+        !Transform
+        Name: AWS::Include
+        Parameters:
+          Location: ./swagger/swagger.yaml
+      GatewayResponses:
+        DEFAULT_4xx:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Headers: '''*'''
+              Access-Control-Allow-Origin: '''*'''
+              Access-Control-Allow-Methods: '''*'''
+      EndpointConfiguration:
+        Type: PRIVATE
+        VPCEndpointIds:
+          - !Ref ApiGatewayVPCEndpoint
+      AccessLogSetting:
+        DestinationArn: !GetAtt flightBriefingApiApiGatewayLogGroup.Arn
+        Format: '{ "requestId":"$context.requestId", "ip": "$context.identity.sourceIp",
+          "requestTime":"$context.requestTime",
+          "httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","routeKey":"$context.routeKey",
+          "status":"$context.status","protocol":"$context.protocol",
+          "responseLength":"$context.responseLength" }'
+      MethodSettings:
+        - LoggingLevel: INFO
+          MetricsEnabled: true
+          DataTraceEnabled: true
+          ResourcePath: /* # allows for logging on any resource
+          HttpMethod: '*' # allows for logging on any method
+      TracingEnabled: true
+      Cors:
+        AllowMethods: '''PUT, GET, OPTIONS, POST'''
+        AllowOrigin: '''*'''
+        AllowHeaders: '''*'''
+        MaxAge: '''300'''
+      Auth:
+        # DefaultAuthorizer: flightBriefingApiAuthorizer    ## Create the Authorizer here for Lambda function
+        # Authorizers:
+        #   flightBriefingApiAuthorizer:
+        #     FunctionArn: !Ref AuthorizerFunctionArnParamName ## Referring the Lambda function created by other pipeline
+        # AddDefaultAuthorizerToCorsPreflight: false
+        ResourcePolicy:
+          CustomStatements:
+            - Effect: Allow
+              Principal: '*'
+              Action: execute-api:Invoke
+              Resource: execute-api:/*
+            - Effect: Deny
+              Principal: '*'
+              Action: execute-api:Invoke
+              Resource: execute-api:/*
+              Condition:
+                StringNotEquals:
+                  aws:sourceVpce: !Ref ApiGatewayVPCEndpoint
+      Tags:
+        blockCode: !Ref blockCode
+
+  flightBriefingApiPrivateCurrentRegionPropagation:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /delta/current/${appId}-private-${Environment}/${AWS::Region}/apiID
+      Type: String
+      Value: !Ref flightBriefingApiPrivateapiGateway
+
+  flightBriefingApiPrivateiIdImport:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: flightBriefingApiPrivateapiGateway
+    Properties:
+      ServiceToken: !Ref ArnPropagateLambdaFunctionARN
+      RestAPIArn: !Ref flightBriefingApiPrivateapiGateway
+      SSMParamname: !Sub /delta/replica/${appId}-private-${Environment}/${AWS::Region}/apiID
+      Region: !If
+        - IsUSWest2
+        - us-east-1
+        - us-west-2
+
+  CrossRegionAlarm:
+    Condition: IsRequired
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !Ref LambdaCusResActCrossRegionAlarmARN
+      AlarmName: !Join
+        - "-"
+        - - !Ref appId
+          - "Route53HealthAlarm"
+          - !FindInMap [CrossRegionMap, !Ref "AWS::Region", Value]
+          - !Ref Environment
+      MetricName: !Sub "${appId}-PrivateHealthCheckMetric"
+      Namespace: !Join
+        - "-"
+        - - !Ref appId
+          - !FindInMap [CrossRegionMap, !Ref "AWS::Region", Value]
+          - "CrossRegMetricsNS"
+      TargetRegion: !FindInMap [CrossRegionMap, !Ref "AWS::Region", Value]
+
+  flightBriefingApiPrivateGetlambdaApiGatewayInvoke:
+    Type: AWS::Lambda::Permission
+    DependsOn:
+      - flightBriefingApiPrivateapiGateway
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref flightBriefingApilambdaFunction.Alias
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${flightBriefingApiPrivateapiGateway}/*
+
+  #  flightBriefingApiPrivateHealthChecklambdaApiGatewayInvoke:
+  #    Type: AWS::Lambda::Permission
+  #    DependsOn:
+  #      - flightBriefingApiPrivateapiGateway
+  #    Properties:
+  #      Action: lambda:InvokeFunction
+  #      FunctionName: !Ref flightBriefingApiHealthChecklambdaFunction.Alias
+  #      Principal: apigateway.amazonaws.com
+  #      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${flightBriefingApiPrivateapiGateway}/*
+
+  flightBriefingApiPrivateapiGatewayDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Sub ${domainName}.${PrivateHostedZoneName}
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      RegionalCertificateArn: !Ref ACMPrivateCertificateArn
+      SecurityPolicy: TLS_1_2
+
+  flightBriefingApiPrivateapiGatewayMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      Stage: !Ref flightBriefingApiPrivateapiGateway.Stage
+      DomainName: !Ref flightBriefingApiPrivateapiGatewayDomainName
+      RestApiId: !Ref flightBriefingApiPrivateapiGateway
+
+  flightBriefingApiPrivateroute53RecordGroup:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref PrivateHostedZoneId
+      RecordSets:
+        - Name: !Sub ${domainName}.${PrivateHostedZoneName}
+          Type: CNAME
+          Region: !Sub ${AWS::Region}
+          SetIdentifier: !Sub RouteRecord-private-${appId}-${AWS::Region}
+          HealthCheckId: !Ref flightBriefingApiPrivateHealthCheck
+          ResourceRecords:
+            - !Sub ${domainName}.${AWS::Region}.${PrivateHostedZoneName}
+          TTL: '60'
+
+  flightBriefingApiUserFriendlyDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Sub ${userfriendlydomainName}.delta.com
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      RegionalCertificateArn: !Ref ACMPrivateCertificateArn
+      SecurityPolicy: TLS_1_2
+
+  flightBriefingApiUserFriendlyGatewayMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      Stage: !Ref flightBriefingApiPrivateapiGateway.Stage
+      DomainName: !Ref flightBriefingApiUserFriendlyDomainName
+      RestApiId: !Ref flightBriefingApiPrivateapiGateway
+
+  flightBriefingApiPrivateapiCustomDomainRegional:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Sub ${domainName}.${AWS::Region}.${PrivateHostedZoneName}
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      RegionalCertificateArn: !Ref ACMPrivateCertificateArn
+      SecurityPolicy: TLS_1_2
+
+  flightBriefingApiPrivateapiCustomDomainMappingRegional:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref flightBriefingApiPrivateapiCustomDomainRegional
+      RestApiId: !Ref flightBriefingApiPrivateapiGateway
+      Stage: !Ref flightBriefingApiPrivateapiGateway.Stage
+
+  flightBriefingApiPrivateroute53RecordGroupRegional:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref PrivateHostedZoneId
+      RecordSets:
+        - Name: !Sub ${domainName}.${AWS::Region}.${PrivateHostedZoneName}
+          AliasTarget:
+            DNSName: !Ref ApiNLBDNSName
+            HostedZoneId: !Ref ApiNLBCanonicalHostedZoneID
+          Type: A
+          Weight: 50
+          SetIdentifier: !Sub RouteRecord-private-${appId}-${AWS::Region}
+
+  flightBriefingApiPrivateHealthCheck:
+    DependsOn: CrossRegionAlarm
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        AlarmIdentifier:
+          Name: !Join
+            - "-"
+            - - !Ref appId
+              - "Route53HealthAlarm"
+              - !FindInMap [CrossRegionMap, !Ref "AWS::Region", Value]
+              - !Ref Environment          
+          Region: !FindInMap [CrossRegionMap, !Ref "AWS::Region", Value]
+        InsufficientDataHealthStatus: LastKnownStatus
+        Type: CLOUDWATCH_METRIC
+      HealthCheckTags:
+        - Key: Name
+          Value: !Sub "${domainName}-R53HealthCheck-private-crossregion-${AWS::Region}"
+
+
+  flightBriefingApiPrivateRoute53HealthCheckParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Description: Private API Route53 Health Check ID
+      Name: !Sub /flightBriefingApi/r53/privatehealthcheck/${AWS::Region}/id
+      Type: String
+      Value: !GetAtt flightBriefingApiPrivateHealthCheck.HealthCheckId
+
+  ##################### Private API Resources  End ###########################################
+
+  flightBriefingApilambdaFunction:
+    # Adds a GET api endpoint at "/" to the ApiGatewayApi via an Api event
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: !Sub ${GetlambdaFunctionName}
+      #      FunctionName: !Ref GetlambdaFunctionName
+      Description: flight-briefing data API Lambda GET Function
+      Handler: io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest
+      Runtime: provided.al2
+      CodeUri: flight-briefing-api-lambda/target/function.zip
+      # MemorySize: 1536
+      Timeout: 900
+      Role: !Ref lambdaExecutionRoleArn
+      AutoPublishAlias: live
+      Tracing: Active
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref apiSecurityGroupId
+        SubnetIds:
+          - '{{resolve:ssm:/delta/vpc/privatesubnet1aid:1}}'
+          - '{{resolve:ssm:/delta/vpc/privatesubnet2aid:1}}'
+          - '{{resolve:ssm:/delta/vpc/privatesubnet3aid:1}}'
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:725887861453:layer:Dynatrace_OneAgent_1_259_2_20230113-135404_nodejs:1
+      Environment:
+        Variables:
+          HANDLER: FlibhtBriefingAPIHandler
+          DISABLE_SIGNAL_HANDLERS: true
+          CLIMATE_DATA_TABLE: CLIMATE_DATA
+          TOKEN_URL: !FindInMap
+            - AirportAPIURLConfigMap
+            - !Ref AccountEnv
+            - TokenUrl
+          CLIENT_ID: '{{resolve:secretsmanager:wxstream-api-pingid-creds:SecretString:client_id}}'
+          CLIENT_SECRET: '{{resolve:secretsmanager:wxstream-api-pingid-creds:SecretString:client_secret}}'
+          AIRPORT_URL: !FindInMap
+            - AirportAPIURLConfigMap
+            - !Ref AccountEnv
+            - DeltaHostName
+          NODE_TLS_REJECT_UNAUTHORIZED: 0
+          TABLE_NAME: FLIGHT_LEG
+          COMPRESSED_PAYLOAD_SIZE: 5.98
+          APPLICATION_TIMEOUT: 29
+          ENVIRONMENT: dev
+          AIRPORT_API_URL: !Ref airportApiURL
+          AUTH_URL: !Ref authURL
+          METAR_API_URL: !Ref metarApiURL
+          TAF_API_URL: !Ref tafApiURL
+          ATIS_API_URL: !Ref atisApiURL
+          FICON_API_URL: !Ref ficonApiURL
+          PIREP_API_URL: !Ref pirepApiURL
+      Tags:
+        blockCode: !Ref blockCode
+
+  flightBriefingSQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      KmsMasterKeyId: !Ref WeatherKMSKey
+      QueueName: !Sub sqs_tp_ack
+      VisibilityTimeout: 900
+
+  flightBriefingSQSlambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${SQSlambdaFunctionName}
+      Description: Flight briefing SQS message processor
+      Handler: io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest
+      Runtime: provided.al2
+      CodeUri: flight-briefing-api-lambda/target/function.zip
+      Timeout: 300
+      Role: !Ref lambdaExecutionRoleArn
+      AutoPublishAlias: live
+      Tracing: Active
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref apiSecurityGroupId
+        SubnetIds:
+          - '{{resolve:ssm:/delta/vpc/privatesubnet1aid:1}}'
+          - '{{resolve:ssm:/delta/vpc/privatesubnet2aid:1}}'
+          - '{{resolve:ssm:/delta/vpc/privatesubnet3aid:1}}'
+      Environment:
+        Variables:
+          TABLE_NAME: FLIGHT_LEG
+          HANDLER: FlibhtBriefingSQSHandler
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt flightBriefingSQSQueue.Arn
+            BatchSize: 10
+      Tags:
+        blockCode: !Ref blockCode
+
+  #  flightBriefingApiCrossRegHealthChecklambdaFunction: # Adds a GET api endpoint at "/" to the ApiGatewayApi via an Api event
+  #    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  #    Properties:
+  #      FunctionName: flightBriefingApiCrossRegHealthChecklambdaFunction
+  #      Description: Health Check Lambda
+  #      CodeUri: src/health-check/
+  #      Handler: app.lambda_handler
+  #      Runtime: python3.12
+  #      Timeout: 10
+  #      Tracing: Active
+  #      Role: !Ref CrossRegionHealthIamRole
+  #      VpcConfig:
+  #        SecurityGroupIds:
+  #          - !Ref apiSecurityGroupId
+  #        SubnetIds:
+  #          - '{{resolve:ssm:/delta/vpc/privatesubnet1aid:1}}'
+  #          - '{{resolve:ssm:/delta/vpc/privatesubnet2aid:1}}'
+  #          - '{{resolve:ssm:/delta/vpc/privatesubnet3aid:1}}'
+  #
+  #      Layers:
+  #        - !Sub "arn:aws:lambda:${AWS::Region}:725887861453:layer:Dynatrace_OneAgent_1_259_2_20230113-135404_nodejs:1"
+  #
+  #      Environment:
+  #        Variables:
+  #          DISABLE_SIGNAL_HANDLERS: true
+  #          cfprotocol: !Ref protocol
+  #          cfport: '443'
+  #          cfTargetUri: !Join
+  #                 - "."
+  #                 - - !Sub ${domainName}
+  #                   - !FindInMap [CrossRegionMap, !Ref "AWS::Region", Value]
+  #                   - !Ref PrivateHostedZoneName
+  #          cfhealthPath: !Ref HealthPath
+  #          cfFailoverBucketName: !Select [5, !Split [':', !Ref FailoverBucket]]
+  #          cfFailoverBucketKey: !Ref FailoverBucketKey
+  #          cfmetricName: !Sub "${appId}-PrivateHealthCheckMetric"
+  #          cfCrossRegR53PvtHealthCheckNS: !Sub "${appId}-${AWS::Region}-CrossRegMetricsNS"
+  #
+  #      Tags:
+  #        blockCode: !Ref blockCode
+  #
+  #  HealthCheckEVENTS:
+  #    Condition: IsRequired
+  #    Type: 'AWS::Events::Rule'
+  #    Properties:
+  #      Description: Route53 Health Check
+  #      Name: !Sub "${appId}-HealthCheckrule"
+  #      ScheduleExpression: rate(1 minute)
+  #      State: ENABLED
+  #      Targets:
+  #        - Id: HealthCheckEVENTS
+  #          Arn: !GetAtt
+  #            - flightBriefingApiCrossRegHealthChecklambdaFunction
+  #            - Arn
+  #
+  #  HealthCheckEVENTPERMISSION:
+  #    Condition: IsRequired
+  #    DependsOn: flightBriefingApiCrossRegHealthChecklambdaFunction
+  #    Type: 'AWS::Lambda::Permission'
+  #    Properties:
+  #      FunctionName: flightBriefingApiCrossRegHealthChecklambdaFunction
+  #      Action: 'lambda:InvokeFunction'
+  #      Principal: events.amazonaws.com
+  #      SourceArn: !GetAtt
+  #        - HealthCheckEVENTS
+  #        - Arn
+  #
+  #  flightBriefingApiCrossRegHealthChecklogGroup:
+  #    Type: AWS::Logs::LogGroup
+  #    DeletionPolicy: Delete
+  #    UpdateReplacePolicy: Delete
+  #    Properties:
+  #      LogGroupName: !Sub '/aws/lambda/${flightBriefingApiCrossRegHealthChecklambdaFunction}'
+  #      RetentionInDays: 30
+  #      Tags:
+  #        - Key: blockCode
+  #          Value: !Ref blockCode
+  #
+  #  flightBriefingApiHealthChecklambdaFunction: # Adds a GET api endpoint at "/" to the ApiGatewayApi via an Api event
+  #    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  #    Properties:
+  #      FunctionName: flightBriefingApiHealthChecklambdaFunction
+  #      Description: Health Check Lambda
+  ##      CodeUri: ./dist
+  #      CodeUri: target/function.zip
+  ##      Handler: healthCheck.default
+  #      Handler: not.used.in.provided.runtime
+  ##      Runtime: nodejs18.x
+  #      Runtime: provided
+  #      # MemorySize: 1536
+  #      Timeout: 900
+  #      AutoPublishAlias: live
+  #      Tracing: Active
+  #      Role: !Ref lambdaExecutionRoleArn
+  #      VpcConfig:
+  #        SecurityGroupIds:
+  #          - !Ref apiSecurityGroupId
+  #        SubnetIds:
+  #          - '{{resolve:ssm:/delta/vpc/privatesubnet1aid:1}}'
+  #          - '{{resolve:ssm:/delta/vpc/privatesubnet2aid:1}}'
+  #          - '{{resolve:ssm:/delta/vpc/privatesubnet3aid:1}}'
+  #
+  #      Layers:
+  #        - !Sub "arn:aws:lambda:${AWS::Region}:725887861453:layer:Dynatrace_OneAgent_1_259_2_20230113-135404_nodejs:1"
+  #
+  #      Environment:
+  #        Variables:
+  #          DISABLE_SIGNAL_HANDLERS: true
+  #          HEALTH_TABLE: "CLIMATE_DATA"
+  #          NODE_TLS_REJECT_UNAUTHORIZED: 0
+  #
+  #      Tags:
+  #        blockCode: !Ref blockCode
+
+  #  flightBriefingApiHealthChecklogGroup:
+  #    Type: AWS::Logs::LogGroup
+  #    DeletionPolicy: Delete
+  #    UpdateReplacePolicy: Delete
+  #    Properties:
+  #      LogGroupName: !Sub '/aws/lambda/${flightBriefingApiHealthChecklambdaFunction}'
+  #      RetentionInDays: 30
+  #      Tags:
+  #        - Key: blockCode
+  #          Value: !Ref blockCode
+
+  flightBriefingApilambdaFunctionArnParameter:
+    Type: AWS::SSM::Parameter
+    DependsOn:
+      - flightBriefingApilambdaFunction
+    Properties:
+      Name: !Ref GetlambdaFunctionArnParamName
+      Type: String
+      Value: !Ref flightBriefingApilambdaFunctionAliaslive
+      Description: SSM Parameter for lambda function arn
+      Tags:
+        blockCode: !Ref blockCode
+
+  flightBriefingApilambdaFunctionLogGroupParam:
+    Type: AWS::SSM::Parameter
+    DependsOn:
+      - flightBriefingApilambdaFunction
+    Properties:
+      Name: !Ref GetlambdaFunctionLogGroupParamName
+      Type: String
+      Value: !Sub /aws/lambda/${GetlambdaFunctionName}
+      Description: SSM Parameter for lambda function Log Group
+      Tags:
+        blockCode: !Ref blockCode
+
+  flightBriefingSQSQueueParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${appId}/sqs/queue/url
+      Type: String
+      Value: !Ref flightBriefingSQSQueue
+      Description: SQS Queue URL
+      Tags:
+        blockCode: !Ref blockCode
+  
+  #################### Alarms  #######################################
+
+  # flightBriefingApiLambdaErrorAlarm:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Properties:
+  #     ActionsEnabled: true
+  #     AlarmActions:
+  #     - !Ref alertNotificationTopicArn   # this topic points to PagerDuty Webhook. 
+  #     AlarmDescription: Alarm which triggers when there are errors in a Lambda 
+  #     AlarmName: !Sub "${Environment}-${appId}-${GetlambdaFunctionName}-LambdaFailureAlert-CRITICAL"
+  #     ComparisonOperator: GreaterThanThreshold
+  #     DatapointsToAlarm: 3
+  #     EvaluationPeriods: 5
+  #     InsufficientDataActions:
+  #       - !Ref alertNotificationTopicArn
+  #     MetricName: Errors
+  #     Namespace: AWS/Lambda
+  #     Dimensions:
+  #       - Name: FunctionName
+  #         Value: !Ref flightBriefingApilambdaFunction
+  #     Period: 60
+  #     Statistic: Sum
+  #     Threshold: 5
+  #     TreatMissingData: notBreaching
+
+  # flightBriefingApiLambdaThrottleAlarm:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Properties:
+  #     ActionsEnabled: true
+  #     AlarmActions:
+  #     - !Ref alertNotificationTopicArn   # this topic points to PagerDuty Webhook. 
+  #     AlarmDescription: Alarm which triggers when there are throttling issues in a Lambda 
+  #     AlarmName: !Sub "${Environment}-${appId}-${GetlambdaFunctionName}-LambdaThrottleAlert-WARNING"
+  #     ComparisonOperator: GreaterThanThreshold
+  #     DatapointsToAlarm: 3
+  #     EvaluationPeriods: 5
+  #     InsufficientDataActions:
+  #       - !Ref alertNotificationTopicArn
+  #     MetricName: Throttles
+  #     Namespace: AWS/Lambda
+  #     Dimensions:
+  #       - Name: FunctionName
+  #         Value: !Ref flightBriefingApilambdaFunction
+  #     Period: 60
+  #     Statistic: Sum
+  #     Threshold: 5
+  #     TreatMissingData: notBreaching
+
+  # flightBriefingApiLambdaDurationAlarm:
+  #   Type: AWS::CloudWatch::Alarm
+  #   Properties:
+  #     ActionsEnabled: true
+  #     AlarmActions:
+  #     - !Ref alertNotificationTopicArn   # this topic points to PagerDuty Webhook. 
+  #     AlarmDescription: Alarm which triggers when a Lambda execution duration exceeds a threshold
+  #     AlarmName: !Sub "${Environment}-${appId}-${GetlambdaFunctionName}-LambdaDurationAlert-WARNING"
+  #     ComparisonOperator: GreaterThanThreshold
+  #     DatapointsToAlarm: 3
+  #     EvaluationPeriods: 5
+  #     InsufficientDataActions:
+  #       - !Ref alertNotificationTopicArn
+  #     MetricName: Duration
+  #     Namespace: AWS/Lambda
+  #     Dimensions:
+  #       - Name: FunctionName
+  #         Value: !Ref flightBriefingApilambdaFunction
+  #     Period: 60
+  #     Statistic: Average
+  #     Threshold: 3000
+  #     TreatMissingData: ignore
+

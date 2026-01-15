@@ -39,6 +39,12 @@
             <artifactId>quarkus-resteasy-reactive-jackson</artifactId>
         </dependency>
         
+        <!-- Quarkus Lambda REST for API Gateway integration -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-amazon-lambda</artifactId>
+        </dependency>
+        
         <!-- AWS SDK v2 for SQS -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

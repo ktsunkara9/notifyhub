@@ -3,6 +3,7 @@ package inc.skt.notifyhub.resource;
 import inc.skt.notifyhub.dto.NotificationRequest;
 import inc.skt.notifyhub.dto.NotificationResponse;
 import inc.skt.notifyhub.service.NotificationService;
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
@@ -12,6 +13,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 @Path("/api/v1/notifications")
+@IfBuildProfile("dev")
 public class NotificationResource {
 
     @Inject

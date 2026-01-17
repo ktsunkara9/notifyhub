@@ -56,12 +56,7 @@ resource "aws_lambda_function" "function" {
   timeout         = var.timeout
 
   environment {
-    variables = merge(
-      {
-        QUARKUS_PROFILE = var.environment
-      },
-      var.environment_variables
-    )
+    variables = var.environment_variables
   }
 
   tags = {

@@ -29,7 +29,7 @@ module "lambda" {
   queue_arn      = module.sqs.queue_arn
 
   environment_variables = {
-    QUEUE_URL = module.sqs.queue_url
+    "notifyhub.sqs.queue-url" = module.sqs.queue_url
   }
 }
 

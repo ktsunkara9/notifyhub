@@ -1,6 +1,6 @@
 # SQS Queue for notification ingestion
 resource "aws_sqs_queue" "notification_queue" {
-  name                       = "${var.environment}-${var.queue_name}"
+  name                       = var.queue_name
   visibility_timeout_seconds = 300
   message_retention_seconds  = 345600 # 4 days
   max_message_size           = 262144 # 256 KB
@@ -8,7 +8,7 @@ resource "aws_sqs_queue" "notification_queue" {
   receive_wait_time_seconds  = 20 # Long polling for cost optimization
 
   tags = {
-    Name        = "${var.environment}-${var.queue_name}"
+    Name        = var.queue_name
     Environment = var.environment
     Project     = "NotifyHub"
   }
@@ -16,12 +16,12 @@ resource "aws_sqs_queue" "notification_queue" {
 
 # Dead Letter Queue for failed messages
 resource "aws_sqs_queue" "notification_dlq" {
-  name                       = "${var.environment}-${var.queue_name}-dlq"
+  name                       = "${var.queue_name}-dlq"
   message_retention_seconds  = 1209600 # 14 days
   receive_wait_time_seconds  = 20
 
   tags = {
-    Name        = "${var.environment}-${var.queue_name}-dlq"
+    Name        = "${var.queue_name}-dlq"
     Environment = var.environment
     Project     = "NotifyHub"
   }

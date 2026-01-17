@@ -1,6 +1,6 @@
 # IAM role for Lambda execution
 resource "aws_iam_role" "lambda_role" {
-  name = "${var.environment}-${var.function_name}-role"
+  name = "${var.function_name}-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -14,7 +14,7 @@ resource "aws_iam_role" "lambda_role" {
   })
 
   tags = {
-    Name        = "${var.environment}-${var.function_name}-role"
+    Name        = "${var.function_name}-role"
     Environment = var.environment
     Project     = "NotifyHub"
   }
@@ -28,7 +28,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 
 # Policy for SQS access (send messages only)
 resource "aws_iam_role_policy" "lambda_sqs" {
-  name = "${var.environment}-${var.function_name}-sqs-policy"
+  name = "${var.function_name}-sqs-policy"
   role = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
@@ -47,7 +47,7 @@ resource "aws_iam_role_policy" "lambda_sqs" {
 # Lambda function
 resource "aws_lambda_function" "function" {
   filename         = var.lambda_zip_path
-  function_name    = "${var.environment}-${var.function_name}"
+  function_name    = var.function_name
   role            = aws_iam_role.lambda_role.arn
   handler         = "not.used.in.provided.runtime"
   source_code_hash = filebase64sha256(var.lambda_zip_path)
@@ -65,7 +65,7 @@ resource "aws_lambda_function" "function" {
   }
 
   tags = {
-    Name        = "${var.environment}-${var.function_name}"
+    Name        = var.function_name
     Environment = var.environment
     Project     = "NotifyHub"
   }
@@ -77,7 +77,7 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
   retention_in_days = var.log_retention_days
 
   tags = {
-    Name        = "${var.environment}-${var.function_name}-logs"
+    Name        = "${var.function_name}-logs"
     Environment = var.environment
     Project     = "NotifyHub"
   }

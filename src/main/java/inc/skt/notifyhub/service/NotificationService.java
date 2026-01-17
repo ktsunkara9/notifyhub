@@ -2,27 +2,33 @@ package inc.skt.notifyhub.service;
 
 import inc.skt.notifyhub.dto.NotificationRequest;
 import inc.skt.notifyhub.dto.NotificationResponse;
-import inc.skt.notifyhub.infrastructure.queue.InMemoryQueueService;
+import inc.skt.notifyhub.infrastructure.queue.SqsQueueService;
+import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.util.UUID;
 
 @ApplicationScoped
+@IfBuildProfile("prod")
 public class NotificationService {
 
     @Inject
-    InMemoryQueueService queueService;
+    SqsQueueService queueService;
+
+    @ConfigProperty(name = "notifyhub.sqs.queue-url")
+    String queueUrl;
 
     public NotificationResponse sendNotification(NotificationRequest request) {
         String notificationId = UUID.randomUUID().toString();
         
-        // Send to queue (in-memory for local dev)
-        queueService.sendMessage("local-queue", request);
+        // Send to SQS
+        queueService.sendMessage(queueUrl, request);
         
         NotificationResponse response = new NotificationResponse();
         response.notificationId = notificationId;
-        response.status = "PENDING";
+        response.status = "QUEUED";
         response.message = "Notification queued successfully";
         
         return response;

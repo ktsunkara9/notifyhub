@@ -1,5 +1,8 @@
 package inc.skt.notifyhub.dto;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+
+@RegisterForReflection
 public class HealthResponse {
     public String status;
     public String service;

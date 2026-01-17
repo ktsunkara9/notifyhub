@@ -1,5 +1,8 @@
 package inc.skt.notifyhub.dto;
 
+import io.quarkus.runtime.annotations.RegisterForReflection;
+
+@RegisterForReflection
 public class NotificationResponse {
     public String notificationId;
     public String status;

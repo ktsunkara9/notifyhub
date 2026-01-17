@@ -165,6 +165,23 @@ terraform destroy
 
 ---
 
+## Troubleshooting
+
+### Lambda Environment Variable Error
+
+If you get validation error about environment variables when deploying Lambda:
+
+```bash
+# Destroy and recreate Lambda function
+cd terraform
+terraform destroy -target=module.lambda.aws_lambda_function.function -auto-approve
+terraform apply
+```
+
+This forces recreation of the Lambda with correct environment variables.
+
+---
+
 #### Build Profiles
 
 | Profile | Command | Active Class | Use Case |

@@ -5,49 +5,66 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import inc.skt.notifyhub.dto.HealthResponse;
 import inc.skt.notifyhub.dto.NotificationRequest;
-import inc.skt.notifyhub.dto.NotificationResponse;
 import inc.skt.notifyhub.service.NotificationService;
-import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-
 import java.util.Map;
 
 @Named("apiHandler")
-@IfBuildProfile("prod")
+@RegisterForReflection
 public class ApiHandler implements RequestHandler<Map<String, Object>, Object> {
 
     @Inject
     NotificationService notificationService;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Inject
+    ObjectMapper objectMapper;
 
     @Override
     public Object handleRequest(Map<String, Object> input, Context context) {
-        String path = (String) input.get("path");
-        String httpMethod = (String) input.get("httpMethod");
-        
-        context.getLogger().log("Path: " + path + ", Method: " + httpMethod);
+        // 1. Robust Path Extraction (Checks rawPath first, then path)
+        String path = (String) input.getOrDefault("rawPath", input.get("path"));
 
-        // Health endpoint
-        if ("/health".equals(path) && "GET".equals(httpMethod)) {
-            return new HealthResponse("UP", "notifyhub");
-        }
-        
-        // Notification endpoint
-        if ("/api/v1/notifications".equals(path) && "POST".equals(httpMethod)) {
-            try {
-                String bodyString = (String) input.get("body");
-                context.getLogger().log("Request body: " + bodyString);
-                NotificationRequest request = objectMapper.readValue(bodyString, NotificationRequest.class);
-                return notificationService.sendNotification(request);
-            } catch (Exception e) {
-                context.getLogger().log("Error processing notification: " + e.getMessage());
-                e.printStackTrace();
-                throw new RuntimeException("Failed to process notification", e);
+        // 2. Robust Method Extraction (Handles nested v2 structure)
+        String httpMethod = "UNKNOWN";
+        if (input.containsKey("requestContext")) {
+            Map<String, Object> ctx = (Map<String, Object>) input.get("requestContext");
+            if (ctx.containsKey("http")) {
+                Map<String, Object> http = (Map<String, Object>) ctx.get("http");
+                httpMethod = (String) http.get("method");
             }
         }
-        
-        throw new RuntimeException("Unsupported path: " + path);
+        if ("UNKNOWN".equals(httpMethod)) {
+            httpMethod = (String) input.getOrDefault("httpMethod", "UNKNOWN");
+        }
+
+        context.getLogger().log("Processing - Path: " + path + ", Method: " + httpMethod);
+
+        // 3. Routing Logic
+        if ("/health".equals(path)) {
+            return new HealthResponse("UP", "notifyhub");
+        }
+
+        if ("/api/v1/notifications".equals(path) && "POST".equalsIgnoreCase(httpMethod)) {
+            try {
+                Object bodyObj = input.get("body");
+                NotificationRequest request;
+
+                // Handle both String body and pre-parsed Map body
+                if (bodyObj instanceof String) {
+                    request = objectMapper.readValue((String) bodyObj, NotificationRequest.class);
+                } else {
+                    request = objectMapper.convertValue(bodyObj, NotificationRequest.class);
+                }
+
+                return notificationService.sendNotification(request);
+            } catch (Exception e) {
+                context.getLogger().log("Mapping Error: " + e.getMessage());
+                throw new RuntimeException("Failed to parse request body", e);
+            }
+        }
+
+        throw new RuntimeException("Unsupported path: " + path + " (Method: " + httpMethod + ")");
     }
 }

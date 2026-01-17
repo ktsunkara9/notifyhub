@@ -55,8 +55,11 @@ resource "aws_lambda_function" "function" {
   memory_size     = var.memory_size
   timeout         = var.timeout
 
-  environment {
-    variables = var.environment_variables
+  dynamic "environment" {
+    for_each = length(var.environment_variables) > 0 ? [1] : []
+    content {
+      variables = var.environment_variables
+    }
   }
 
   tags = {

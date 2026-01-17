@@ -49,9 +49,9 @@ resource "aws_lambda_function" "function" {
   filename         = var.lambda_zip_path
   function_name    = "${var.environment}-${var.function_name}"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "io.quarkus.amazon.lambda.runtime.QuarkusStreamHandler::handleRequest"
+  handler         = "not.used.in.provided.runtime"
   source_code_hash = filebase64sha256(var.lambda_zip_path)
-  runtime         = "java17"
+  runtime         = "provided.al2023"
   memory_size     = var.memory_size
   timeout         = var.timeout
 

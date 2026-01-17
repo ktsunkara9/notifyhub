@@ -3,7 +3,6 @@ package inc.skt.notifyhub.service;
 import inc.skt.notifyhub.dto.NotificationRequest;
 import inc.skt.notifyhub.dto.NotificationResponse;
 import inc.skt.notifyhub.infrastructure.queue.SqsQueueService;
-import io.quarkus.arc.profile.IfBuildProfile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -11,7 +10,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import java.util.UUID;
 
 @ApplicationScoped
-@IfBuildProfile("prod")
 public class NotificationService {
 
     @Inject

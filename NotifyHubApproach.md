@@ -234,3 +234,187 @@ resource "aws_api_gateway_method" "post_notification" {
 5. **Right tool for the job** - Technology evaluation skills demonstrated
 
 **Decision:** Quarkus is the optimal choice for NotifyHub's event-driven, multi-Lambda architecture.
+
+---
+
+## Troubleshooting Guide
+
+### 1. Lambda Environment Variable Validation Error
+
+**Error:**
+```
+Validation error: Value at environment.variables failed to satisfy constraint: 
+Map keys must satisfy regular expression pattern: [a-zA-Z]([a-zA-Z0-9])+
+```
+
+**Cause:** Lambda environment variable names cannot contain dots (`.`) or hyphens (`-`). Only alphanumeric characters and underscores are allowed.
+
+**Solution:**
+```bash
+cd terraform
+terraform destroy -target=module.lambda.aws_lambda_function.function -auto-approve
+terraform apply
+```
+
+**Prevention:** Use `UPPER_SNAKE_CASE` for Lambda environment variables:
+- ❌ `notifyhub.sqs.queue-url`
+- ✅ `NOTIFYHUB_SQS_QUEUE_URL`
+
+### 2. API Gateway Returns 403 "Missing Authentication Token"
+
+**Cause:** URL path doesn't match any configured API Gateway route.
+
+**Common mistakes:**
+- Missing stage name: `https://api-id.execute-api.region.amazonaws.com/health` ❌
+- Correct format: `https://api-id.execute-api.region.amazonaws.com/dev/health` ✅
+
+**Solution:**
+```bash
+cd terraform
+terraform output health_endpoint
+terraform output notifications_endpoint
+```
+
+Use the exact URLs from Terraform outputs.
+
+### 3. API Gateway Works in Console But Not from Postman (500 Error)
+
+**Cause:** API Gateway deployment not updated after configuration changes.
+
+**Why this happens:**
+- API Gateway separates **configuration** (resources/methods) from **deployment** (immutable snapshot)
+- Console test uses latest configuration
+- Stage URL uses deployed snapshot
+- Terraform's `depends_on` doesn't trigger redeployment on config changes
+
+**Solution:**
+```bash
+cd terraform
+terraform taint module.api_gateway.aws_api_gateway_deployment.deployment
+terraform apply
+```
+
+**Prevention:** Use deployment triggers in Terraform:
+```hcl
+resource "aws_api_gateway_deployment" "deployment" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_integration.lambda.id,
+      aws_api_gateway_integration.health.id,
+    ]))
+  }
+}
+```
+
+### 4. Native Build Fails with AWS SDK Classes
+
+**Error:**
+```
+No serializer found for class [AWS SDK class]
+```
+
+**Cause:** GraalVM native image doesn't include reflection metadata for AWS SDK classes.
+
+**Solution:** Add reflection configuration in `src/main/resources/META-INF/native-image/reflect-config.json`:
+```json
+[
+  {
+    "name": "software.amazon.awssdk.services.sqs.model.SendMessageRequest",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  }
+]
+```
+
+**Better solution:** Use Quarkus extensions when available (handles reflection automatically).
+
+### 5. Lambda Not Receiving SQS Messages
+
+**Cause:** Missing SQS event source mapping or incorrect permissions.
+
+**Check:**
+1. Lambda has SQS trigger configured
+2. Lambda execution role has `sqs:ReceiveMessage`, `sqs:DeleteMessage` permissions
+3. Queue ARN matches in Terraform
+
+**Solution:**
+```bash
+# Check Lambda triggers
+aws lambda list-event-source-mappings --function-name notification-handler
+
+# Verify IAM permissions
+aws iam get-role-policy --role-name notification-handler-role --policy-name sqs-policy
+```
+
+### 6. Terraform State Conflicts
+
+**Error:**
+```
+Error acquiring the state lock
+```
+
+**Cause:** Previous Terraform operation didn't complete cleanly.
+
+**Solution:**
+```bash
+cd terraform
+terraform force-unlock <LOCK_ID>
+```
+
+**Prevention:** Always let Terraform operations complete. Use `Ctrl+C` carefully.
+
+### 7. Docker Not Running (Native Build)
+
+**Error:**
+```
+Cannot connect to Docker daemon
+```
+
+**Cause:** Native compilation requires Docker for Linux binary creation on Windows/Mac.
+
+**Solution:**
+1. Start Docker Desktop
+2. Verify: `docker ps`
+3. Rebuild: `mvnw clean package -Pnative -Dquarkus.native.container-build=true`
+
+### 8. Maven Wrapper Not Found
+
+**Error:**
+```
+mvnw: command not found
+```
+
+**Solution:**
+```bash
+# Download Maven Wrapper JAR
+curl -o .mvn/wrapper/maven-wrapper.jar https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.2.0/maven-wrapper-3.2.0.jar
+
+# Or regenerate wrapper
+mvn -N wrapper:wrapper -Dmaven=3.9.6
+```
+
+---
+
+## Quick Troubleshooting Commands
+
+```bash
+# Force Lambda recreation
+cd terraform && terraform destroy -target=module.lambda.aws_lambda_function.function -auto-approve && terraform apply
+
+# Force API Gateway redeployment
+cd terraform && terraform taint module.api_gateway.aws_api_gateway_deployment.deployment && terraform apply
+
+# Check Lambda logs
+aws logs tail /aws/lambda/notification-handler --follow
+
+# Test Lambda directly
+aws lambda invoke --function-name notification-handler --payload '{"path":"/health","httpMethod":"GET"}' response.json
+
+# Check SQS queue
+aws sqs get-queue-attributes --queue-url <QUEUE_URL> --attribute-names All
+
+# Verify Terraform state
+cd terraform && terraform show
+```

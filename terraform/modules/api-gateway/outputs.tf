@@ -4,8 +4,8 @@ output "api_id" {
 }
 
 output "api_endpoint" {
-  description = "Full URL of the API endpoint"
-  value       = "${aws_api_gateway_stage.stage.invoke_url}/api/v1/notifications"
+  description = "Base URL of the API Gateway"
+  value       = aws_api_gateway_stage.stage.invoke_url
 }
 
 output "stage_name" {

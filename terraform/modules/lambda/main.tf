@@ -74,10 +74,10 @@ resource "aws_lambda_function" "function" {
 
 # SQS trigger for Lambda
 resource "aws_lambda_event_source_mapping" "sqs_trigger" {
-  event_source_arn = var.queue_arn
-  function_name    = aws_lambda_function.function.arn
-  batch_size       = var.batch_size
-  batch_window     = var.batch_window
+  event_source_arn                   = var.queue_arn
+  function_name                      = aws_lambda_function.function.arn
+  batch_size                         = var.batch_size
+  maximum_batching_window_in_seconds = var.batch_window
 
   scaling_config {
     maximum_concurrency = var.max_concurrency

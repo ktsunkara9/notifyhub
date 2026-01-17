@@ -1,6 +1,6 @@
 # REST API
 resource "aws_api_gateway_rest_api" "api" {
-  name        = "${var.environment}-${var.api_name}"
+  name        = var.api_name
   description = "NotifyHub Notification API"
 
   endpoint_configuration {
@@ -8,7 +8,7 @@ resource "aws_api_gateway_rest_api" "api" {
   }
 
   tags = {
-    Name        = "${var.environment}-${var.api_name}"
+    Name        = var.api_name
     Environment = var.environment
     Project     = "NotifyHub"
   }

@@ -3,6 +3,16 @@ output "api_endpoint" {
   value       = module.api_gateway.api_endpoint
 }
 
+output "health_endpoint" {
+  description = "Health check endpoint"
+  value       = "${module.api_gateway.api_endpoint}/health"
+}
+
+output "notifications_endpoint" {
+  description = "Notifications endpoint"
+  value       = "${module.api_gateway.api_endpoint}/api/v1/notifications"
+}
+
 output "queue_url" {
   description = "SQS Queue URL"
   value       = module.sqs.queue_url

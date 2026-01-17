@@ -21,8 +21,9 @@ This project is designed to demonstrate **scalable system design**, **clean serv
 ### Prerequisites
 - Java 17 or higher
 - Maven 3.8.2 or higher (or use Maven Wrapper)
+- Docker Desktop (required for native compilation on Windows)
 - GraalVM (optional, for native compilation)
-- Docker Desktop (for native builds on Windows)
+- Terraform (for infrastructure deployment)
 
 ### Maven Wrapper Setup
 
@@ -118,14 +119,41 @@ terraform apply
 ```bash
 # Get API endpoint from Terraform output
 terraform output api_endpoint
+```
 
-# Test notification endpoint
+**Test Health Endpoint:**
+```bash
+curl https://[api-id].execute-api.us-east-1.amazonaws.com/dev/health
+```
+
+**Expected Response:**
+```json
+{
+  "status": "UP",
+  "message": "notifyhub"
+}
+```
+
+**Test Notification Endpoint:**
+```bash
 curl -X POST https://[api-id].execute-api.us-east-1.amazonaws.com/dev/api/v1/notifications \
   -H "Content-Type: application/json" \
-  -d '{"userId":"123","message":"Hello from AWS"}'
+  -d '{
+    "userId": "user123",
+    "title": "Test Notification",
+    "message": "Hello from AWS",
+    "channel": "EMAIL",
+    "priority": "HIGH"
+  }'
+```
 
-# Test health endpoint
-curl https://[api-id].execute-api.us-east-1.amazonaws.com/dev/health
+**Expected Response:**
+```json
+{
+  "id": "...",
+  "status": "QUEUED",
+  "message": "Notification queued successfully"
+}
 ```
 
 **Step 4: Destroy Infrastructure**

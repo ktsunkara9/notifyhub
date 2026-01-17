@@ -45,11 +45,10 @@
             <artifactId>quarkus-amazon-lambda</artifactId>
         </dependency>
         
-        <!-- AWS SDK v2 for SQS -->
+        <!-- Quarkus AWS SQS -->
         <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>sqs</artifactId>
-            <version>2.20.26</version>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-amazon-sqs</artifactId>
         </dependency>
     </dependencies>
 

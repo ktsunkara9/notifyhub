@@ -26,7 +26,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# Policy for SQS access
+# Policy for SQS access (send messages only)
 resource "aws_iam_role_policy" "lambda_sqs" {
   name = "${var.environment}-${var.function_name}-sqs-policy"
   role = aws_iam_role.lambda_role.id
@@ -36,9 +36,8 @@ resource "aws_iam_role_policy" "lambda_sqs" {
     Statement = [{
       Effect = "Allow"
       Action = [
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes"
+        "sqs:SendMessage",
+        "sqs:GetQueueUrl"
       ]
       Resource = var.queue_arn
     }]
@@ -69,18 +68,6 @@ resource "aws_lambda_function" "function" {
     Name        = "${var.environment}-${var.function_name}"
     Environment = var.environment
     Project     = "NotifyHub"
-  }
-}
-
-# SQS trigger for Lambda
-resource "aws_lambda_event_source_mapping" "sqs_trigger" {
-  event_source_arn                   = var.queue_arn
-  function_name                      = aws_lambda_function.function.arn
-  batch_size                         = var.batch_size
-  maximum_batching_window_in_seconds = var.batch_window
-
-  scaling_config {
-    maximum_concurrency = var.max_concurrency
   }
 }
 

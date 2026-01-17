@@ -20,11 +20,11 @@ module "sqs" {
   queue_name  = "notification-queue"
 }
 
-# Lambda Function
+# Lambda Function (API Handler)
 module "lambda" {
   source         = "./modules/lambda"
   environment    = var.environment
-  function_name  = "notification-processor"
+  function_name  = "notification-handler"
   lambda_zip_path = var.lambda_zip_path
   queue_arn      = module.sqs.queue_arn
 

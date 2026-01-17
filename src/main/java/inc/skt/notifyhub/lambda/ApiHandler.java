@@ -37,10 +37,13 @@ public class ApiHandler implements RequestHandler<Map<String, Object>, Object> {
         // Notification endpoint
         if ("/api/v1/notifications".equals(path) && "POST".equals(httpMethod)) {
             try {
-                NotificationRequest request = objectMapper.convertValue(input.get("body"), NotificationRequest.class);
+                String bodyString = (String) input.get("body");
+                context.getLogger().log("Request body: " + bodyString);
+                NotificationRequest request = objectMapper.readValue(bodyString, NotificationRequest.class);
                 return notificationService.sendNotification(request);
             } catch (Exception e) {
                 context.getLogger().log("Error processing notification: " + e.getMessage());
+                e.printStackTrace();
                 throw new RuntimeException("Failed to process notification", e);
             }
         }

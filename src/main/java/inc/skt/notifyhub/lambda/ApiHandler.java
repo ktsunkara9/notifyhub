@@ -58,6 +58,17 @@ public class ApiHandler implements RequestHandler<Map<String, Object>, Object> {
                     request = objectMapper.convertValue(bodyObj, NotificationRequest.class);
                 }
 
+                // Validation
+                if (request.userId == null || request.userId.trim().isEmpty()) {
+                    throw new IllegalArgumentException("userId is required");
+                }
+                if (request.message == null || request.message.trim().isEmpty()) {
+                    throw new IllegalArgumentException("message is required");
+                }
+                if (request.type == null) {
+                    throw new IllegalArgumentException("type is required");
+                }
+
                 return notificationService.sendNotification(request);
             } catch (Exception e) {
                 context.getLogger().log("Mapping Error: " + e.getMessage());

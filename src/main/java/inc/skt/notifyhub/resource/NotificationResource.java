@@ -32,6 +32,10 @@ public class NotificationResource {
             throw new IllegalArgumentException("message is required");
         }
         
+        if (request.type == null) {
+            throw new IllegalArgumentException("type is required");
+        }
+        
         // Delegate to service
         NotificationResponse response = notificationService.sendNotification(request);
         

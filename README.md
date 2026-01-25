@@ -21,9 +21,9 @@ This project is designed to demonstrate **scalable system design**, **clean serv
 ### Prerequisites
 - Java 17 or higher
 - Maven 3.8.2 or higher (or use Maven Wrapper)
-- Docker Desktop (required for native compilation on Windows)
-- GraalVM (optional, for native compilation)
-- Terraform (for infrastructure deployment)
+- AWS CLI (for authentication and optional debugging)
+- Terraform 1.0+ (for infrastructure deployment)
+- AWS Account with configured credentials
 
 ### Maven Wrapper Setup
 
@@ -76,7 +76,7 @@ curl -X POST http://localhost:8080/api/v1/notifications \
   -d '{"userId":"123","message":"Hello"}'
 
 # Health check
-curl http://localhost:8080/q/health
+curl http://localhost:8080/health
 ```
 
 **Dev Profile:**
@@ -130,7 +130,7 @@ curl https://[api-id].execute-api.us-east-1.amazonaws.com/dev/health
 ```json
 {
   "status": "UP",
-  "message": "notifyhub"
+  "service": "notifyhub"
 }
 ```
 
@@ -138,20 +138,14 @@ curl https://[api-id].execute-api.us-east-1.amazonaws.com/dev/health
 ```bash
 curl -X POST https://[api-id].execute-api.us-east-1.amazonaws.com/dev/api/v1/notifications \
   -H "Content-Type: application/json" \
-  -d '{
-    "userId": "user123",
-    "title": "Test Notification",
-    "message": "Hello from AWS",
-    "channel": "EMAIL",
-    "priority": "HIGH"
-  }'
+  -d '{"userId":"user123","message":"Hello from AWS"}'
 ```
 
 **Expected Response:**
 ```json
 {
-  "id": "...",
-  "status": "QUEUED",
+  "notificationId": "abc-123",
+  "status": "PENDING",
   "message": "Notification queued successfully"
 }
 ```
@@ -167,16 +161,136 @@ terraform destroy
 
 ## 📚 Documentation
 
-- **[NotifyHubApproach.md](NotifyHubApproach.md)** - Architecture decisions, framework comparison, and troubleshooting guide
+- **[NotifyHubApproach.md](NotifyHubApproach.md)** - Architecture decisions, framework comparison, and design patterns
+- **[TroubleShooting.md](TroubleShooting.md)** - Common issues and solutions
+
+---
+
+## ✅ Implementation Progress
+
+### Phase 1: Core Infrastructure ✅
+- [x] Quarkus project setup with Maven
+- [x] DTOs (NotificationRequest, NotificationResponse, HealthResponse)
+- [x] Exception handling (GlobalExceptionMapper, ErrorResponse)
+- [x] REST endpoints (NotificationResource, HealthResource)
+- [x] Service layer (NotificationService)
+- [x] In-memory queue implementation
+- [x] Profile-based compilation (dev/prod)
+
+### Phase 2: AWS Lambda Integration ✅
+- [x] Custom Lambda handler (ApiHandler)
+- [x] Request/response mapping templates
+- [x] Build profiles for local vs Lambda
+- [x] Lambda deployment package (function.zip)
+
+### Phase 3: Terraform Infrastructure ✅
+- [x] SQS module (queue + DLQ)
+- [x] Lambda module (function + IAM roles)
+- [x] API Gateway module (REST API + endpoints)
+- [x] Root Terraform configuration
+- [x] AWS integration (non-proxy) setup
+
+### Phase 4: SQS Integration ✅
+- [x] SQS client configuration
+- [x] SQSQueueService implementation
+- [x] Lambda SQS event source mapping
+- [x] Message processing from SQS
+- [x] Messages successfully queued and visible in SQS
+
+### Phase 5: Notification Processing 📋
+- [ ] Priority-based queue routing
+- [ ] Notification validation
+- [ ] Rate limiting implementation
+- [ ] User preference filtering
+- [ ] Retry mechanism with exponential backoff
+
+### Phase 6: Multi-Channel Delivery 📋
+- [ ] Email channel integration
+- [ ] SMS channel integration
+- [ ] In-App notification service
+- [ ] IVRS integration
+- [ ] Channel-specific error handling
+
+### Phase 7: DynamoDB Integration 📋
+- [ ] DynamoDB tables (users, preferences, notifications)
+- [ ] User preference management
+- [ ] Notification history tracking
+- [ ] Rate limit counters
+
+### Phase 8: Bulk Notifications 📋
+- [ ] Bulk notification API endpoint
+- [ ] Location-based filtering
+- [ ] Segment-based filtering
+- [ ] Batch processing optimization
+- [ ] Progress tracking
+
+### Phase 9: Monitoring & Observability 📋
+- [ ] CloudWatch metrics
+- [ ] Custom application metrics
+- [ ] Distributed tracing (X-Ray)
+- [ ] Alarms and notifications
+- [ ] Dashboard creation
+
+### Phase 10: Testing & Documentation 📋
+- [ ] Unit tests
+- [ ] Integration tests
+- [ ] Load testing
+- [ ] API documentation (OpenAPI/Swagger)
+- [ ] Deployment guide
+
+**Legend:**
+- ✅ Completed
+- 🚧 In Progress
+- 📋 Planned
+
+---
+
+## 🏗️ Project Structure
+
+```
+notifyhub/
+├── src/main/java/inc/skt/notifyhub/
+│   ├── dto/                    # Data Transfer Objects
+│   │   ├── NotificationRequest.java
+│   │   ├── NotificationResponse.java
+│   │   └── HealthResponse.java
+│   ├── exception/              # Exception handling
+│   │   ├── ErrorResponse.java
+│   │   └── GlobalExceptionMapper.java
+│   ├── infrastructure/         # Infrastructure layer
+│   │   └── queue/             # Queue implementations
+│   ├── lambda/                # AWS Lambda handlers
+│   │   └── ApiHandler.java    # Custom routing handler (prod)
+│   ├── resource/              # REST endpoints
+│   │   ├── NotificationResource.java  # (dev only)
+│   │   └── HealthResource.java        # (dev only)
+│   └── service/               # Business logic
+│       └── NotificationService.java
+├── terraform/                 # Infrastructure as Code
+│   ├── modules/
+│   │   ├── sqs/              # SQS queue + DLQ
+│   │   ├── lambda/           # Lambda function + IAM
+│   │   └── api-gateway/      # API Gateway + endpoints
+│   ├── main.tf               # Root configuration
+│   ├── variables.tf          # Input variables
+│   ├── outputs.tf            # Output values
+│   └── terraform.tfvars      # Variable values
+└── pom.xml                   # Maven configuration
+```
 
 ---
 
 #### Build Profiles
 
-| Profile | Command | Active Class | Use Case |
-|---------|---------|--------------|----------|
-| **dev** | `mvnw quarkus:dev` | NotificationResource | Local development |
-| **prod** | `mvnw package -Dquarkus.profile=prod` | ApiHandler | AWS Lambda deployment |
+| Profile | Command | Active Classes | Use Case |
+|---------|---------|----------------|----------|
+| **dev** | `mvnw quarkus:dev` | NotificationResource, HealthResource | Local development with REST endpoints |
+| **prod** | `mvnw package -Dquarkus.profile=prod` | ApiHandler | AWS Lambda deployment with custom routing |
+
+**Key Differences:**
+- **Dev Profile**: Uses Quarkus REST endpoints for local testing
+- **Prod Profile**: Uses custom ApiHandler for AWS Lambda with non-proxy integration
+- Profile-based compilation excludes unused classes from final package
 
 ---
 
@@ -252,12 +366,11 @@ All notifications (single or bulk) go through the **same ingestion and processin
 
 ### Core AWS Services Used
 
-- **Amazon API Gateway** – Public APIs
-- **AWS Lambda** – Stateless compute
-- **Amazon SQS** – Async queues & back-pressure handling
-- **Amazon SNS** – Fan-out to multiple channels
-- **Amazon DynamoDB** – User data, preferences, rate-limit counters
-- **Amazon S3 + CloudFront** – Static UI hosting (Bulk Notification UI)
+- **Amazon API Gateway (REST API)** – HTTP endpoints with AWS integration (non-proxy)
+- **AWS Lambda** – Serverless compute with custom routing handler
+- **Amazon SQS** – Message queue with Dead Letter Queue (DLQ)
+- **CloudWatch Logs** – Lambda execution logs and API Gateway access logs
+- **IAM Roles** – Lambda execution permissions for SQS access
 
 ---
 

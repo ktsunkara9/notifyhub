@@ -138,7 +138,7 @@ curl https://[api-id].execute-api.us-east-1.amazonaws.com/dev/health
 ```bash
 curl -X POST https://[api-id].execute-api.us-east-1.amazonaws.com/dev/api/v1/notifications \
   -H "Content-Type: application/json" \
-  -d '{"userId":"user123","message":"Hello from AWS"}'
+  -d '{"userId":"user123","message":"Your OTP is 456789","type":"OTP"}'
 ```
 
 **Expected Response:**
@@ -197,9 +197,13 @@ terraform destroy
 - [x] Message processing from SQS
 - [x] Messages successfully queued and visible in SQS
 
-### Phase 5: Notification Processing 📋
-- [ ] Priority-based queue routing
-- [ ] Notification validation
+### Phase 5: Notification Processing ✅
+- [x] NotificationType enum (OTP, ALERT, TRANSACTIONAL, PROMOTIONAL, INFORMATIONAL)
+- [x] Priority-based queue routing (high/low priority queues)
+- [x] NotificationValidator service (type-specific validation)
+- [x] NotificationPrioritizer service (queue determination)
+- [x] ValidatorPrioritizerHandler Lambda
+- [x] Terraform infrastructure for priority queues
 - [ ] Rate limiting implementation
 - [ ] User preference filtering
 - [ ] Retry mechanism with exponential backoff
@@ -253,23 +257,30 @@ notifyhub/
 │   ├── dto/                    # Data Transfer Objects
 │   │   ├── NotificationRequest.java
 │   │   ├── NotificationResponse.java
+│   │   ├── NotificationType.java      # NEW: Enum for notification types
 │   │   └── HealthResponse.java
 │   ├── exception/              # Exception handling
 │   │   ├── ErrorResponse.java
 │   │   └── GlobalExceptionMapper.java
 │   ├── infrastructure/         # Infrastructure layer
 │   │   └── queue/             # Queue implementations
+│   │       ├── InMemoryQueueService.java
+│   │       └── SqsQueueService.java
 │   ├── lambda/                # AWS Lambda handlers
-│   │   └── ApiHandler.java    # Custom routing handler (prod)
+│   │   ├── ApiHandler.java                    # API routing (prod)
+│   │   └── ValidatorPrioritizerHandler.java   # NEW: Validator & Prioritizer
 │   ├── resource/              # REST endpoints
 │   │   ├── NotificationResource.java  # (dev only)
 │   │   └── HealthResource.java        # (dev only)
 │   └── service/               # Business logic
-│       └── NotificationService.java
+│       ├── NotificationService.java
+│       ├── NotificationValidator.java         # NEW: Validation service
+│       └── NotificationPrioritizer.java       # NEW: Priority determination
 ├── terraform/                 # Infrastructure as Code
 │   ├── modules/
-│   │   ├── sqs/              # SQS queue + DLQ
-│   │   ├── lambda/           # Lambda function + IAM
+│   │   ├── sqs/              # SQS queue + DLQ (reusable)
+│   │   ├── lambda/           # Lambda function + IAM (API handler)
+│   │   ├── lambda-validator/ # NEW: Lambda for validator-prioritizer
 │   │   └── api-gateway/      # API Gateway + endpoints
 │   ├── main.tf               # Root configuration
 │   ├── variables.tf          # Input variables
@@ -367,8 +378,13 @@ All notifications (single or bulk) go through the **same ingestion and processin
 ### Core AWS Services Used
 
 - **Amazon API Gateway (REST API)** – HTTP endpoints with AWS integration (non-proxy)
-- **AWS Lambda** – Serverless compute with custom routing handler
-- **Amazon SQS** – Message queue with Dead Letter Queue (DLQ)
+- **AWS Lambda (2 functions)**
+  - ApiHandler – Receives API requests, queues to ingestion queue
+  - ValidatorPrioritizer – Validates and routes to priority queues
+- **Amazon SQS (6 queues)**
+  - notification-queue (ingestion) + DLQ
+  - high-priority-queue + DLQ
+  - low-priority-queue + DLQ
 - **CloudWatch Logs** – Lambda execution logs and API Gateway access logs
 - **IAM Roles** – Lambda execution permissions for SQS access
 
@@ -377,4 +393,39 @@ All notifications (single or bulk) go through the **same ingestion and processin
 ## 🔁 End-to-End Flow
 
 ### Single Notification Flow
+
+```
+1. Client → API Gateway
+   POST /api/v1/notifications
+   Body: {"userId": "user123", "message": "Your OTP is 456789", "type": "OTP"}
+
+2. API Gateway → Lambda (ApiHandler)
+   - Basic validation (userId, message, type not null)
+   - Generates notificationId
+   - Returns 202 ACCEPTED immediately
+
+3. Lambda (ApiHandler) → SQS (notification-queue)
+   - Queues notification for async processing
+
+4. SQS (notification-queue) → Lambda (ValidatorPrioritizer) [Trigger]
+   - Batch processing (up to 10 messages)
+   - Deep validation (type-specific rules)
+   - Priority determination based on NotificationType
+
+5. Lambda (ValidatorPrioritizer) → SQS (Priority Queues)
+   - OTP, ALERT, TRANSACTIONAL → high-priority-queue
+   - PROMOTIONAL, INFORMATIONAL → low-priority-queue
+
+6. Next: Channel-specific processors (Phase 6)
+```
+
+### Notification Types & Priority Mapping
+
+| Type | Priority | Max Message Length | Use Case |
+|------|----------|-------------------|----------|
+| OTP | High | 160 chars | One-time passwords, 2FA codes |
+| ALERT | High | 500 chars | Critical system alerts |
+| TRANSACTIONAL | High | 1000 chars | Order confirmations, receipts |
+| PROMOTIONAL | Low | 1000 chars | Marketing campaigns |
+| INFORMATIONAL | Low | 2000 chars | Newsletters, updates |
 
